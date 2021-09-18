@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-port-exposer
+  labels:
+    app: doc-db-server
+spec:
+  clusterIP: None
+  selector:
+    app: doc-db-server
+  ports:
+    - port: 3306
+      targetPort: 3306
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deploy
+  labels:
+    app: doc-db-server
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doc-db-server
+  template:
+    metadata:
+      labels:
+        app: doc-db-server
+    spec:
+      volumes:
+        - name: doc-db-data
+          emptyDir: {}
+        - name: doc-db-data2
+          hostPath:
+            path: "/src/main/resources/db"
+      containers:
+        - name: db-server
+          imagePullPolicy: IfNotPresent
+          image: mysql:8.0.26
+          ports:
+            - name: mysql-port
+              containerPort: 3306
+          volumeMounts:
+            - name: doc-db-data
+              mountPath: "/var/lib/mysql"
+            - name: doc-db-data2
+              mountPath: "/docker-entrypoint-initdb.d/"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+            - name: MYSQL_DATABASE
+              value: employeedocumentdetails
+          securityContext:
+            privileged: true

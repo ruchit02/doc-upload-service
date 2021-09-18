@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: doc-env-vars
+    namespace: e7fd-exploring-openshift
+data:
+    DOC_SERVICE_HOST: "10.100.100.111"
+    DOC_SERVICE_PORT: "8082"
