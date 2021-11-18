@@ -9,7 +9,7 @@ node {
 
     stage('Build image') {
   
-       app = docker.build("t0pn0tch/test")
+       app = docker.build("t0pn0tch/photo-image")
     }
 
     stage('Test image') {
@@ -22,8 +22,7 @@ node {
 
     stage('Push image') {
         
-        docker.withRegistry('https://registry.hub.docker.com', 'git') {
-            app.push("${env.BUILD_NUMBER}")
+        docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-topnotch') {
             app.push("latest")
         }
     }
