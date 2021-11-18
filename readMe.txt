@@ -23,4 +23,5 @@ docker run -p 8082:8082 \
 -e GATEWAY_SERVICE_HOST=192.168.99.100 -e GATEWAY_SERVICE_PORT=8081 \
 photo-image
 
+testing jenkins webhook trigger
 
