@@ -1,5 +1,8 @@
 package com.topnotch.demo.services;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
@@ -11,6 +14,10 @@ import com.topnotch.demo.models.EmployeeDocuments;
 import com.topnotch.demo.repositories.EmployeeDetailsRepository;
 import com.topnotch.demo.repositories.EmployeeDocumentsRepository;
 
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+
 @Service
 public class TNPhotoDetailsService {
 
@@ -19,7 +26,10 @@ public class TNPhotoDetailsService {
 
 	@Autowired
 	private EmployeeDocumentsRepository employeeDocumentsRepository;
-
+	
+	@Autowired
+	private Tracer tracer;
+	
 	public void createEmployeeAcc(EmployeeDetailsDTO employeeDetailsDTO) {
 
 		System.out.println("Mapping credentials to database object ....");
@@ -37,28 +47,37 @@ public class TNPhotoDetailsService {
 	}
 
 	public DocUploadResponse uploadDocument(String email, FilePart file) {
-
-		System.out.println("Mapping doc's metadata to doc database object ....");
-
-		String[] details = fileDetailsExtractor( file.filename() );
 		
-		byte[] rawData = file.content().toStream().map( buffer -> buffer.asByteBuffer().array() ).findFirst().get() ;
+		Span span = tracer.buildSpan( "mysql-DB" ).start();
 		
-		EmployeeDocuments emp_doc = new EmployeeDocuments();
-		emp_doc.setDoc_name(details[0]);
-		emp_doc.setDoc_type(details[1]);
-		emp_doc.setData(rawData);
+		try( Scope scope = tracer.scopeManager().activate(span) ) {
 
-		EmployeeDetails employee = employeeDetailsRepository.findByEmail(email);
-		emp_doc.setEmp_id(employee);
+			String[] details = fileDetailsExtractor( file.filename() );
+			
+			byte[] rawData = file.content().toStream().map( buffer -> buffer.asByteBuffer().array() ).findFirst().get() ;
+			
+			EmployeeDocuments emp_doc = new EmployeeDocuments();
+			emp_doc.setDoc_name(details[0]);
+			emp_doc.setDoc_type(details[1]);
+			emp_doc.setData(rawData);
 
-		System.out.println("Database object created ....");
+			EmployeeDetails employee = employeeDetailsRepository.findByEmail(email);
+			emp_doc.setEmp_id(employee);
+			
+			Map<String, String> fields = new HashMap<>();
+			fields.put( "Document Name" , details[0] );
+			fields.put( "Document Type" , details[1] );
+			fields.put( "Employee Id", employee.getId().toString() );
+			span.log(fields);
 
-		employeeDocumentsRepository.saveAndFlush(emp_doc);
-
-		System.out.println("Photo object pushed to database ....");
-
-		return new DocUploadResponse(details[0], details[1]);
+			employeeDocumentsRepository.saveAndFlush(emp_doc);
+			
+			return new DocUploadResponse(details[0], details[1]);
+			
+		} finally {
+			
+			span.finish();
+		}
 	}
 
 	private String[] fileDetailsExtractor(String fileName) {

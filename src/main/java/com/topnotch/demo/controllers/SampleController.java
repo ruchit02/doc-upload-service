@@ -1,5 +1,9 @@
 package com.topnotch.demo.controllers;
 
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -18,6 +22,10 @@ import com.topnotch.demo.models.EmployeeDetails;
 import com.topnotch.demo.repositories.EmployeeDetailsRepository;
 import com.topnotch.demo.services.TNPhotoDetailsService;
 
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+import io.opentracing.tag.Tags;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -31,6 +39,9 @@ public class SampleController {
 
 	@Autowired
 	private EmployeeDetailsRepository repository;
+	
+	@Autowired
+	private Tracer tracer ;
 	
 	@Value("${com.topnotch.properties.gatewayservice.host}")
 	private String GATEWAY_HOST ;
@@ -50,40 +61,74 @@ public class SampleController {
 	
 	@GetMapping("/homePage")
 	public String displayHomepage(ServerHttpRequest request, Model model) {
+		
+		Span span = tracer.buildSpan( "homePage" ).start();
+		
+		try( Scope scope = tracer.scopeManager().activate(span) ) {
+			
+			Tags.SPAN_KIND.set(span, Tags.SPAN_KIND_SERVER );
+			Tags.HTTP_METHOD.set(span, "GET" );
+			Tags.HTTP_URL.set(span, request.getURI().getHost() + ":" + request.getURI().getPort() + request.getURI().getPath() );
+			
+			String authHeader = request.getHeaders().getFirst("Authorization");
+			String userId = request.getHeaders().getFirst("UserId");
 
-		String authHeader = request.getHeaders().getFirst("Authorization");
-		String userId = request.getHeaders().getFirst("UserId");
+			if (authHeader == null || !authHeader.substring(0, 7).equals("Bearer ")) {
+				
+				Map<String, String> fields = new HashMap<>();
+				fields.put( "Redirect URL" , TRANSFER_PROTOCOL + "://" + GATEWAY_HOST + ":" + GATEWAY_PORT + "/myapp/gateway/endpoint1" ) ;
+				span.log(fields);
+				
+				return "redirect:" + TRANSFER_PROTOCOL + "://" + GATEWAY_HOST + ":" + GATEWAY_PORT + "/myapp/gateway/endpoint1";
+			}
 
-		if (authHeader == null || !authHeader.substring(0, 7).equals("Bearer ")) {
+			EmployeeDetails employee = repository.findByEmail(userId);
 
-			return "redirect:" + TRANSFER_PROTOCOL + "://" + GATEWAY_HOST + ":" + GATEWAY_PORT + "/myapp/gateway/endpoint1";
+			if (employee != null) {
+
+				model.addAttribute("empDetails", employee);
+			}
+			return "home";
+			
+		} finally {
+			
+			span.finish();
 		}
-
-		EmployeeDetails employee = repository.findByEmail(userId);
-
-		if (employee != null) {
-
-			model.addAttribute("empDetails", employee);
-		}
-		return "home";
 	}
 
 	@PostMapping(value = "/uploadPage", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	public String displaySpecialpage(ServerHttpRequest request, Model model,
 			@RequestPart("fileToUpload") Flux<FilePart> uploadedFiles) throws InterruptedException {
 		
-		String userId = request.getHeaders().getFirst("UserId");
-
-		Flux<DocUploadResponse> finalResponse = uploadedFiles.filter(file -> file != null).flatMap(file -> {
-			
-			return Mono.fromCallable( () -> {
-				
-				return docService.uploadDocument(userId, file);
-			}).subscribeOn(Schedulers.boundedElastic() );
-		});
+		Span span = tracer.buildSpan( "post-documents" ).start();
 		
-		model.addAttribute("files", finalResponse);
+		try( Scope scope = tracer.scopeManager().activate(span) ) {
+			
+			Tags.SPAN_KIND.set(span, Tags.SPAN_KIND_SERVER );
+			Tags.HTTP_METHOD.set(span, "GET" );
+			Tags.HTTP_URL.set(span, request.getURI().getHost() + ":" + request.getURI().getPort() + request.getURI().getPath() );
+			
+			Map<String, String> fields = new HashMap<>();
+			fields.put( "Redirect URL" , TRANSFER_PROTOCOL + "://" + GATEWAY_HOST + ":" + GATEWAY_PORT + "/myapp/gateway/endpoint3") ;
+			span.log(fields);
+			
+			String userId = request.getHeaders().getFirst("UserId");
 
-		return "redirect:/myapp/gateway/endpoint3" ;
+			Flux<DocUploadResponse> finalResponse = uploadedFiles.filter(file -> file != null).flatMap(file -> {
+				
+				return Mono.fromCallable( () -> {
+					
+					return docService.uploadDocument(userId, file);
+				}).subscribeOn(Schedulers.boundedElastic());
+			});
+			
+			model.addAttribute("files", finalResponse);
+			
+			return "redirect:" + TRANSFER_PROTOCOL + "://" + GATEWAY_HOST + ":" + GATEWAY_PORT + "/myapp/gateway/endpoint3" ;
+			
+		} finally {
+			
+			span.finish();
+		}
 	}
 }

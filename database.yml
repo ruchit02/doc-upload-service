@@ -33,27 +33,28 @@ spec:
         app: doc-db-server
     spec:
       volumes:
-        - name: doc-db-data
-          emptyDir: {}
-        - name: doc-db-data2
-          hostPath:
-            path: "/src/main/resources/db"
+      - name: doc-db-data
+        emptyDir: {}
+      - name: doc-db-data2
+        hostPath:
+            path: "/src/main/resources/database"
+            type: DirectoryOrCreate
       containers:
-        - name: db-server
-          imagePullPolicy: IfNotPresent
-          image: mysql:8.0.26
-          ports:
-            - name: mysql-port
-              containerPort: 3306
-          volumeMounts:
-            - name: doc-db-data
-              mountPath: "/var/lib/mysql"
-            - name: doc-db-data2
-              mountPath: "/docker-entrypoint-initdb.d/"
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: root
-            - name: MYSQL_DATABASE
-              value: employeedocumentdetails
-          securityContext:
+      - name: db-server
+        imagePullPolicy: IfNotPresent
+        image: mysql:8.0.26
+        ports:
+        - name: mysql-port
+          containerPort: 3306
+        volumeMounts:
+        - name: doc-db-data
+          mountPath: "/var/lib/mysql"
+        - name: doc-db-data2
+          mountPath: "/docker-entrypoint-initdb.d/"
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: root
+        - name: MYSQL_DATABASE
+          value: employeedocumentdetails
+        securityContext:
             privileged: true
