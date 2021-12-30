@@ -32,4 +32,9 @@ node {
             app.push("latest")
         }
     }
+    
+    stage('Deploy Kubernetes pod'){
+        
+        sh 'kubectl apply -f doc-upload.yml'
+    }
 }
