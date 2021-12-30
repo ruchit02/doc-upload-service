@@ -36,6 +36,9 @@ node {
     stage('Deploy Kubernetes pod'){
         
         withKubeConfig([credentialsId: 'minikube-kubeconfig-file', serverUrl: 'https://192.168.99.102:8443']) {
+            
+            sh 'curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.22.1/bin/linux/amd64/kubectl"'  
+            sh 'chmod u+x ./kubectl'
             sh 'kubectl apply -f doc-upload.yml'
         }
     }
