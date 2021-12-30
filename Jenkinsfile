@@ -5,6 +5,12 @@ node {
       
 
         checkout scm
+        echo "Running Build id is : ${env.BUILD_ID}"
+        echo "Running Build number is : ${env.BUILD_NUMBER}"
+        echo "Running Build tag is : ${env.BUILD_TAG}"
+        echo "Running Build url is : ${env.BUILD_URL}"
+        echo "Running Job name is : ${env.JOB_NAME}"
+        echo "Running node name is : ${env.NODE_NAME}"
     }
 
     stage('Build image') {
