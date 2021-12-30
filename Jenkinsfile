@@ -35,6 +35,8 @@ node {
     
     stage('Deploy Kubernetes pod'){
         
-        sh 'kubectl apply -f doc-upload.yml'
+        sh 'curl -LO "https://storage.googleapis.com/kubernetes-release/release/v1.22.1/bin/linux/amd64/kubectl"'  
+        sh 'chmod u+x ./kubectl'
+        sh './kubectl apply -f doc-upload.yml'
     }
 }
